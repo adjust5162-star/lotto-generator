@@ -1,6 +1,8 @@
 # 🎰 AI 로또 번호 생성기
 
-**https://adjust5162-star.github.io/lotto-generator/**
+**🌐 사이트:** https://adjust5162-star.github.io/lotto-generator/
+
+**📦 저장소:** https://github.com/adjust5162-star/lotto-generator
 
 과거 당첨 빈도 기반 가중치 추천과 OpenRouter AI 추천 두 가지 방식으로 로또 번호를 생성합니다.
 
