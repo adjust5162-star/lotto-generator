@@ -38,7 +38,10 @@ h1{
 }
 
 .btn-wrap{
-    text-align:center;
+    display:flex;
+    justify-content:center;
+    gap:15px;
+    flex-wrap:wrap;
     margin-bottom:30px;
 }
 
@@ -68,6 +71,16 @@ button:disabled{
     background:#475569;
     cursor:not-allowed;
     opacity:0.7;
+}
+
+.btn-ai{
+    background:linear-gradient(135deg,#7c3aed,#a855f7);
+    box-shadow:0 4px 15px rgba(124,58,237,0.4);
+}
+
+.btn-ai:hover:not(:disabled){
+    box-shadow:0 6px 20px rgba(168,85,247,0.6);
+    transform:translateY(-2px);
 }
 
 @keyframes spin{
@@ -125,6 +138,35 @@ button.shaking{
     margin-bottom:20px;
 }
 
+.ai-section{
+    margin-bottom:20px;
+}
+
+.card-ai{
+    background:linear-gradient(135deg,rgba(124,58,237,0.25),rgba(168,85,247,0.15));
+    border:1px solid rgba(168,85,247,0.5);
+    border-radius:20px;
+    padding:25px;
+    backdrop-filter:blur(10px);
+    opacity:0;
+    transform:translateY(30px);
+}
+
+.card-ai.visible{
+    animation:cardIn 0.5s ease forwards;
+}
+
+.card-ai h3{
+    margin-bottom:20px;
+    color:#c4b5fd;
+}
+
+.ai-error{
+    color:#f87171;
+    padding:15px 0;
+    font-size:15px;
+}
+
 .numbers{
     display:flex;
     gap:10px;
@@ -174,6 +216,76 @@ button.shaking{
     color:#cbd5e1;
     line-height:1.7;
 }
+
+/* 모달 */
+.modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.7);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    backdrop-filter:blur(4px);
+}
+
+.modal{
+    background:#1e293b;
+    border:1px solid rgba(168,85,247,0.4);
+    border-radius:20px;
+    padding:32px;
+    width:90%;
+    max-width:480px;
+}
+
+.modal h2{
+    margin-bottom:10px;
+    font-size:20px;
+    color:#c4b5fd;
+}
+
+.modal p{
+    color:#94a3b8;
+    font-size:14px;
+    margin-bottom:20px;
+    line-height:1.6;
+}
+
+.modal input{
+    width:100%;
+    padding:12px 16px;
+    border-radius:10px;
+    border:1px solid rgba(168,85,247,0.4);
+    background:rgba(255,255,255,0.06);
+    color:white;
+    font-size:14px;
+    margin-bottom:16px;
+    outline:none;
+}
+
+.modal input:focus{
+    border-color:#a855f7;
+}
+
+.modal-btns{
+    display:flex;
+    gap:10px;
+    justify-content:flex-end;
+}
+
+.modal-btns button{
+    padding:10px 22px;
+    font-size:15px;
+}
+
+.btn-cancel{
+    background:rgba(255,255,255,0.1) !important;
+}
+
+.btn-cancel:hover:not(:disabled){
+    background:rgba(255,255,255,0.18) !important;
+    box-shadow:none !important;
+}
 </style>
 </head>
 <body>
@@ -190,8 +302,12 @@ button.shaking{
     <button id="genBtn" onclick="generateSets()">
         번호 5세트 생성하기
     </button>
+    <button id="aiBtn" class="btn-ai" onclick="generateAI()">
+        ✨ AI 추천 받기
+    </button>
 </div>
 
+<div id="ai-result" class="ai-section"></div>
 <div id="result" class="grid"></div>
 
 <div class="info">
@@ -202,95 +318,67 @@ button.shaking{
 
 </div>
 
+<!-- API 키 입력 모달 -->
+<div id="keyModal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+        <h2>🔑 OpenRouter API 키 입력</h2>
+        <p>
+            AI 추천 기능은 OpenRouter API 키가 필요합니다.<br>
+            키는 이 브라우저에만 저장되며 외부로 전송되지 않습니다.<br>
+            <a href="https://openrouter.ai/keys" target="_blank" style="color:#a855f7;">openrouter.ai/keys</a>에서 발급받을 수 있습니다.
+        </p>
+        <input id="keyInput" type="password" placeholder="sk-or-v1-..." />
+        <div class="modal-btns">
+            <button class="btn-cancel" onclick="closeModal()">취소</button>
+            <button class="btn-ai" onclick="saveKey()">저장 후 추천 받기</button>
+        </div>
+    </div>
+</div>
+
 <script>
 
-// 자주 나왔다고 가정한 번호
 const hotNumbers = [
   7,12,13,17,18,21,22,25,
   27,31,32,35,37,41,43,45
 ];
 
-// 가중치 풀 생성
 const weightedPool = [];
 
 for(let i=1;i<=45;i++){
-
     let weight = 1;
-
-    if(hotNumbers.includes(i)){
-        weight = 5;
-    }
-
-    for(let j=0;j<weight;j++){
-        weightedPool.push(i);
-    }
+    if(hotNumbers.includes(i)) weight = 5;
+    for(let j=0;j<weight;j++) weightedPool.push(i);
 }
 
 function getWeightedNumber(excluded){
-
     let num;
-
     do{
-        num = weightedPool[
-            Math.floor(Math.random()*weightedPool.length)
-        ];
+        num = weightedPool[Math.floor(Math.random()*weightedPool.length)];
     }while(excluded.includes(num));
-
     return num;
 }
 
 function generateLotto(){
-
     const numbers=[];
-
-    while(numbers.length<6){
-        numbers.push(
-            getWeightedNumber(numbers)
-        );
-    }
-
+    while(numbers.length<6) numbers.push(getWeightedNumber(numbers));
     numbers.sort((a,b)=>a-b);
-
     let bonus;
-
-    do{
-        bonus = getWeightedNumber(numbers);
-    }while(numbers.includes(bonus));
-
-    return {
-        main:numbers,
-        bonus:bonus
-    };
+    do{ bonus = getWeightedNumber(numbers); }while(numbers.includes(bonus));
+    return { main:numbers, bonus:bonus };
 }
 
 function getColor(num){
-
     if(num<=10) return "yellow";
     if(num<=20) return "blue";
     if(num<=30) return "red";
     if(num<=40) return "gray";
-
     return "green";
 }
 
-function createBall(num){
-
-    return `
-        <div class="ball ${getColor(num)}">
-            ${num}
-        </div>
-    `;
-}
-
 function generateSets(){
-
     const btn=document.getElementById("genBtn");
-
-    // 비활성화 + 스피너
     btn.disabled=true;
     btn.innerHTML='<span class="spinner"></span>번호 생성 중...';
-
-    // 버튼 흔들기
     btn.classList.remove("shaking");
     void btn.offsetWidth;
     btn.classList.add("shaking");
@@ -298,52 +386,139 @@ function generateSets(){
     const result=document.getElementById("result");
     result.innerHTML="";
 
-    const SETS=5;
-    const BALLS=7; // 메인 6 + 보너스 1
-    // 마지막 볼이 pop 완료되는 시점: 마지막 카드 딜레이 + 마지막 볼 딜레이 + pop 애니메이션
-    const totalDuration=SETS*80 + (BALLS-1)*60 + 400;
+    const SETS=5, BALLS=7;
+    const totalDuration=SETS*80+(BALLS-1)*60+400;
 
     for(let i=1;i<=SETS;i++){
-
         const lotto=generateLotto();
         const card=document.createElement("div");
         card.className="card";
-
-        const bonusIdx=lotto.main.length;
-
         card.innerHTML=`
             <h3>🎟 추천 ${i}세트</h3>
             <div class="numbers">
-                ${lotto.main.map((n,idx)=>`
-                    <div class="ball ${getColor(n)}" data-idx="${idx}">${n}</div>
-                `).join("")}
+                ${lotto.main.map((n,idx)=>`<div class="ball ${getColor(n)}" data-idx="${idx}">${n}</div>`).join("")}
                 <span class="bonus-label">+</span>
-                <div class="ball ${getColor(lotto.bonus)}" data-idx="${bonusIdx}">${lotto.bonus}</div>
+                <div class="ball ${getColor(lotto.bonus)}" data-idx="${lotto.main.length}">${lotto.bonus}</div>
             </div>
         `;
-
         result.appendChild(card);
 
-        const cardDelay=i*80;
         setTimeout(()=>{
             card.classList.add("visible");
-
             card.querySelectorAll(".ball").forEach((ball,idx)=>{
-                setTimeout(()=>{
-                    ball.classList.add("pop");
-                },idx*60);
+                setTimeout(()=>ball.classList.add("pop"),idx*60);
             });
-        }, cardDelay);
+        }, i*80);
     }
 
-    // 모든 애니메이션 완료 후 버튼 복원
     setTimeout(()=>{
         btn.disabled=false;
         btn.innerHTML='번호 5세트 생성하기';
     }, totalDuration);
 }
 
-// 첫 화면 자동 생성
+// AI 추천
+
+function openModal(){ document.getElementById('keyModal').style.display='flex'; document.getElementById('keyInput').focus(); }
+function closeModal(){ document.getElementById('keyModal').style.display='none'; }
+
+function saveKey(){
+    const key = document.getElementById('keyInput').value.trim();
+    if(!key){ alert('API 키를 입력해주세요.'); return; }
+    localStorage.setItem('or_key', key);
+    closeModal();
+    callAI(key);
+}
+
+function generateAI(){
+    const key = localStorage.getItem('or_key');
+    if(!key){ openModal(); return; }
+    callAI(key);
+}
+
+async function callAI(key){
+    const btn = document.getElementById('aiBtn');
+    const genBtn = document.getElementById('genBtn');
+    const aiResult = document.getElementById('ai-result');
+
+    btn.disabled = true;
+    genBtn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>AI 분석 중...';
+    aiResult.innerHTML = '';
+
+    try {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${key}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'openai/gpt-4o-mini',
+                messages: [{
+                    role: 'user',
+                    content: '한국 로또 번호 6개와 보너스 번호 1개를 추천해줘. 1~45 사이 정수, 7개 모두 서로 다른 숫자여야 해. 반드시 아래 JSON 형식으로만 응답해. 다른 텍스트는 쓰지 마:\n{"main":[n1,n2,n3,n4,n5,n6],"bonus":n7}'
+                }],
+                max_tokens: 60
+            })
+        });
+
+        if(res.status === 401){
+            localStorage.removeItem('or_key');
+            throw new Error('API 키가 유효하지 않습니다. 다시 입력해주세요.');
+        }
+
+        const data = await res.json();
+        const raw = data.choices?.[0]?.message?.content?.trim() ?? '';
+        const match = raw.match(/\{[\s\S]*\}/);
+        if(!match) throw new Error('응답 형식 오류');
+
+        const parsed = JSON.parse(match[0]);
+        const main = parsed.main;
+        const bonus = parsed.bonus;
+
+        if(
+            !Array.isArray(main) || main.length !== 6 ||
+            typeof bonus !== 'number' ||
+            [...main, bonus].some(n => n < 1 || n > 45) ||
+            new Set([...main, bonus]).size !== 7
+        ) throw new Error('번호 유효성 오류');
+
+        main.sort((a, b) => a - b);
+
+        const card = document.createElement('div');
+        card.className = 'card-ai';
+        card.innerHTML = `
+            <h3>✨ AI 추천 번호</h3>
+            <div class="numbers">
+                ${main.map((n,idx)=>`<div class="ball ${getColor(n)}" data-idx="${idx}">${n}</div>`).join('')}
+                <span class="bonus-label">+</span>
+                <div class="ball ${getColor(bonus)}" data-idx="6">${bonus}</div>
+            </div>
+        `;
+        aiResult.appendChild(card);
+
+        setTimeout(()=>{
+            card.classList.add('visible');
+            card.querySelectorAll('.ball').forEach((ball,idx)=>{
+                setTimeout(()=>ball.classList.add('pop'), idx*70);
+            });
+        }, 50);
+
+    } catch(e) {
+        aiResult.innerHTML = `<div class="card-ai visible" style="opacity:1;transform:none;">
+            <div class="ai-error">⚠️ ${e.message}</div>
+        </div>`;
+    } finally {
+        btn.disabled = false;
+        genBtn.disabled = false;
+        btn.innerHTML = '✨ AI 추천 받기';
+    }
+}
+
+// ESC로 모달 닫기
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
 generateSets();
 
 </script>
